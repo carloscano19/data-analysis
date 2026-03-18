@@ -21,9 +21,9 @@ import openai
 import io
 import contextlib
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -55,16 +55,19 @@ app.add_middleware(
 )
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    content = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
-    # Add a hidden indicator for debugging
-    content = content.replace("</body>", "<!-- VERSION: 1.1.5-FIX-405 --></body>")
-    return HTMLResponse(content=content)
 
-@app.get("/test")
+# ─────────────────────────────────────────────
+# API Router (Defined FIRST)
+# ─────────────────────────────────────────────
+api_router = APIRouter(prefix="/api")
+
+@api_router.get("/health")
+async def health():
+    return {"status": "ok", "active_sessions": len(SESSIONS)}
+
+@api_router.get("/test")
 async def test_route():
-    return {"message": "backend is alive"}
+    return {"message": "API router is active", "version": "1.2.0-FINAL"}
 
 
 # ─────────────────────────────────────────────
@@ -285,7 +288,7 @@ class ChatRequest(BaseModel):
 # Endpoints
 # ─────────────────────────────────────────────
 
-@app.post("/api/upload")
+@api_router.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
     """
     Upload one or more CSV / XLSX files in a single request.
@@ -351,7 +354,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
     }
 
 
-@app.post("/api/chart")
+@api_router.post("/chart")
 async def generate_chart(body: ChartRequest, x_api_key: str = Header(...)):
     """
     Generate a Plotly chart from a natural-language prompt.
@@ -404,7 +407,7 @@ async def generate_chart(body: ChartRequest, x_api_key: str = Header(...)):
     return {"chart": chart_json, "code": code}
 
 
-@app.post("/api/chat")
+@api_router.post("/chat")
 async def chat(body: ChatRequest, x_api_key: str = Header(...)):
     """
     Conversational chat about all uploaded datasets.
@@ -465,13 +468,18 @@ async def chat(body: ChatRequest, x_api_key: str = Header(...)):
     return {"reply": final_reply_text.strip()}
 
 
-# ─────────────────────────────────────────────
-# Health
-# ─────────────────────────────────────────────
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "active_sessions": len(SESSIONS)}
+# Include the API router
+app.include_router(api_router)
 
-# Mount remaining static files (style.css, etc.) at root
-# MUST be at the end so it doesn't intercept API routes
+# Serve index.html specifically at root
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return HTMLResponse(content=(FRONTEND_DIR / "index.html").read_text(encoding="utf-8"))
+
+# Serve style.css specifically at root
+@app.get("/style.css")
+async def style():
+    return FileResponse(FRONTEND_DIR / "style.css")
+
+# Mount remaining static files as fallback
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
