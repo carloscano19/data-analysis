@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Data Analysis Tool</title>
   <meta name="description" content="Upload CSV/XLSX files and generate AI-powered interactive charts and insights via natural language." />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=1.2.2" />
   <!-- Plotly CDN -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <!-- Marked.js for markdown rendering -->
@@ -246,7 +246,7 @@ async function uploadFiles(files) {
     const res = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.detail || 'Upload failed');
+      throw new Error(err.detail || `Server error: ${res.status}`);
     }
     const data = await res.json();
     sessionId = data.session_id;

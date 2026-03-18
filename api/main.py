@@ -68,7 +68,7 @@ async def health():
 
 @api_router.get("/test")
 async def test_route():
-    return {"message": "API router is active", "version": "1.2.0-FINAL"}
+    return {"message": "API router is active", "version": "1.2.2-STABLE"}
 
 
 # ─────────────────────────────────────────────
