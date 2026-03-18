@@ -99,6 +99,7 @@ body {
   letter-spacing: -0.3px;
   background: linear-gradient(90deg, var(--text-primary), var(--accent-primary));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -424,6 +425,88 @@ body {
   border-radius: 4px;
 }
 
+/* ─── Dataset Cards (Catalog) ────────────────────────────── */
+.dataset-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.dataset-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition);
+  margin-bottom: 8px;
+}
+
+.dataset-card:hover {
+  border-color: var(--border-default);
+}
+
+.dataset-card-header {
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.dataset-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dataset-card-var {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-code);
+  opacity: 0.8;
+}
+
+.dataset-card-body {
+  padding: 0 12px 12px;
+  display: none;
+}
+
+.dataset-card.open .dataset-card-body {
+  display: block;
+}
+
+.suggestions-box {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(79, 142, 247, 0.05);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.suggestion-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 4px 4px 4px 0;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.suggestion-chip:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+
 /* ─── Chat Panel ─────────────────────────────────────────── */
 .chat-body {
   flex: 1;
@@ -474,6 +557,16 @@ body {
   line-height: 1.7;
   color: var(--text-primary);
   overflow-wrap: break-word;
+}
+
+.msg-bubble a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition);
+}
+.msg-bubble a:hover {
+  color: #93c5fd;
 }
 
 .msg.user .msg-bubble {

@@ -266,50 +266,83 @@ function updateUIAfterUpload(data) {
   document.getElementById('chart-placeholder').style.display = 'flex';
   document.getElementById('schema-preview').style.display   = 'block';
 
-  // Session badge — show first filename or count
-  const label = data.files.length === 1
-    ? data.files[0].filename
-    : `${data.files.length} files loaded`;
+  // Header Session Badge
+  const label = data.files.length === 1 ? data.files[0].filename : `${data.files.length} files loaded`;
   document.getElementById('status-indicator').style.display = 'flex';
   document.getElementById('btn-new-session').style.display   = 'inline-flex';
   document.getElementById('btn-upload-header').style.display = 'none';
   document.getElementById('session-filename').textContent    = label;
 
-  // Build schema tables — one compact block per file
+  // Build Data Catalog (Dataset Cards)
   const container = document.getElementById('schema-tables');
   container.innerHTML = '';
-  data.files.forEach(f => {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin-bottom:10px';
-    wrap.innerHTML = `
-      <div style="font-size:11px;font-weight:600;color:var(--accent-primary);margin-bottom:4px;font-family:var(--font-mono)">
-        ${escapeHtml(f.var_name)} — ${escapeHtml(f.filename)} (${f.row_count.toLocaleString()} rows)
+  
+  data.files.forEach((f, idx) => {
+    const card = document.createElement('div');
+    card.className = `dataset-card ${idx === 0 ? 'open' : ''}`; // Open first one by default
+    card.innerHTML = `
+      <div class="dataset-card-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="dataset-card-title">
+          <span>📁</span> ${escapeHtml(f.filename)}
+        </div>
+        <div class="dataset-card-var">${escapeHtml(f.var_name)}</div>
       </div>
-      <table class="schema-table">
-        <thead><tr><th>Column</th><th>Type</th></tr></thead>
-        <tbody>${f.columns.map(c =>
-          `<tr><td>${escapeHtml(c.name)}</td><td><span class="dtype-badge">${escapeHtml(c.dtype)}</span></td></tr>`
-        ).join('')}</tbody>
-      </table>`;
-    container.appendChild(wrap);
+      <div class="dataset-card-body">
+        <table class="schema-table">
+          <thead><tr><th>Column</th><th>Type</th></tr></thead>
+          <tbody>${f.columns.map(c => `
+            <tr>
+              <td>${escapeHtml(c.name)}</td>
+              <td><span class="dtype-badge">${escapeHtml(c.dtype)}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:8px; text-align:right">
+          ${f.row_count.toLocaleString()} rows
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
   });
 
-  // Enable inputs
+  // Chart Suggestions
+  const suggestions = [
+    "Bar chart of top 10 categories",
+    "Time series of values over time",
+    "Correlation between numeric columns",
+    "Distrubition of the main metric"
+  ];
+  const suggDiv = document.createElement('div');
+  suggDiv.className = 'suggestions-box';
+  suggDiv.innerHTML = `
+    <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase">Suggestions</div>
+    ${suggestions.map(s => `<span class="suggestion-chip" onclick="fillPrompt('${s}')">${s}</span>`).join('')}
+  `;
+  container.appendChild(suggDiv);
+
+  // Enable Inputs
   document.getElementById('chart-prompt').disabled = false;
   document.getElementById('btn-generate').disabled  = false;
   document.getElementById('chat-input').disabled    = false;
   document.getElementById('btn-send').disabled       = false;
 
-  // Chat welcome message with all file info
+  // Welcome message in Chat
   const fileLines = data.files.map(f => {
-    const cols = f.columns.map(c => `**${c.name}** (${c.dtype})`).join(', ');
-    return `**\`${f.var_name}\`** — ${f.filename} (${f.row_count.toLocaleString()} rows)\n  ${cols}`;
+    const cols = f.columns.map(c => `**${c.name}**`).join(', ');
+    return `**\`${f.var_name}\`** (${f.filename})\nColumns: ${cols}`;
   }).join('\n\n');
 
   appendMsg('assistant',
-    `📂 **${data.files.length} file(s) loaded into your session:**\n\n${fileLines}\n\n` +
-    `You can ask about any of them, compare across files, or describe a chart. ¿En qué te ayudo?`
+    `📂 **${data.files.length} dataset(s) loaded.**\n\n${fileLines}\n\n` +
+    `I've updated the **Data Catalog** on the left. You can click each file to see its column types. ` +
+    `What would you like to analyze or visualize?`
   );
+}
+
+function fillPrompt(text) {
+  const input = document.getElementById('chart-prompt');
+  input.value = text;
+  input.focus();
 }
 
 /* ============================================================
