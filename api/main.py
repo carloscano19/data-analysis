@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
@@ -214,10 +215,17 @@ SAFE_BUILTINS = {
         "sorted": sorted, "reversed": reversed, "min": min, "max": max,
         "sum": sum, "abs": abs, "round": round, "isinstance": isinstance,
         "hasattr": hasattr, "getattr": getattr,
+        "set": set, "tuple": tuple,
     },
 }
 
-SAFE_LIBS = {"pd": pd, "px": px, "go": go}
+import datetime as dt_mod
+SAFE_LIBS = {
+    "pd": pd, "px": px, "go": go, 
+    "np": np, 
+    "datetime": dt_mod.datetime, 
+    "timedelta": dt_mod.timedelta
+}
 
 
 def _safe_exec_chart(code: str, dfs: dict[str, pd.DataFrame]) -> dict:
@@ -429,6 +437,7 @@ async def chat(body: ChatRequest, x_api_key: str = Header(...)):
         "```python\nprint(df_queries['Impressions'].sum())\n```\n"
         "We will execute the script securely and give you back the printed output. Then you MUST use that output to answer the user naturally.\n"
         "ALWAYS use `print()` inside your Python scripts to output the results you need.\n"
+        "If the user asks for 'the last X days', identify the Date column and calculate using `datetime.now()` or the max date in the data.\n"
         "Respond in the same language the user writes in.\n\n"
         f"Available DataFrames: {df_list}\n\n"
         "Dataset schemas and samples:\n" + _schema_prompt_block(meta)
