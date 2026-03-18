@@ -100,8 +100,10 @@
       <div id="chart-container" style="display:none;width:100%;height:100%;"></div>
 
       <!-- Generated code viewer -->
-      <pre id="code-viewer" class="code-viewer"></pre>
     </div>
+    
+    <!-- Chart Suggestions (new persistent area) -->
+    <div id="chart-suggestions" class="suggestions-box" style="display:none;"></div>
 
     <!-- Prompt bar (enabled after upload) -->
     <div class="prompt-bar" id="prompt-bar">
@@ -279,7 +281,7 @@ function updateUIAfterUpload(data) {
   
   data.files.forEach((f, idx) => {
     const card = document.createElement('div');
-    card.className = `dataset-card ${idx === 0 ? 'open' : ''}`; // Open first one by default
+    card.className = `dataset-card ${idx === 0 ? 'open' : ''}`;
     card.innerHTML = `
       <div class="dataset-card-header" onclick="this.parentElement.classList.toggle('open')">
         <div class="dataset-card-title">
@@ -312,13 +314,14 @@ function updateUIAfterUpload(data) {
     "Correlation between numeric columns",
     "Distrubition of the main metric"
   ];
-  const suggDiv = document.createElement('div');
-  suggDiv.className = 'suggestions-box';
+  const suggDiv = document.getElementById('chart-suggestions');
+  suggDiv.style.display = 'block';
   suggDiv.innerHTML = `
     <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase">Suggestions</div>
-    ${suggestions.map(s => `<span class="suggestion-chip" onclick="fillPrompt('${s}')">${s}</span>`).join('')}
+    <div class="suggestions-list">
+      ${suggestions.map(s => `<span class="suggestion-chip" onclick="fillPrompt('${s}')">${s}</span>`).join('')}
+    </div>
   `;
-  container.appendChild(suggDiv);
 
   // Enable Inputs
   document.getElementById('chart-prompt').disabled = false;

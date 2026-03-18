@@ -392,7 +392,7 @@ body {
 .schema-preview {
   padding: 0 20px 14px;
   flex-shrink: 0;
-  max-height: 180px;
+  max-height: 380px; /* Increased height */
   overflow-y: auto;
 }
 
@@ -481,11 +481,9 @@ body {
 }
 
 .suggestions-box {
-  margin-top: 16px;
-  padding: 12px;
+  padding: 12px 20px;
   background: rgba(79, 142, 247, 0.05);
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-md);
+  border-top: 1px dashed var(--border-default);
 }
 
 .suggestion-chip {
