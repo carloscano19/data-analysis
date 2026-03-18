@@ -59,9 +59,6 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 async def root():
     return HTMLResponse(content=(FRONTEND_DIR / "index.html").read_text(encoding="utf-8"))
 
-# Mount remaining static files (style.css, etc.) at root
-app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
 
 # ─────────────────────────────────────────────
 # APScheduler — cleanup stale sessions
@@ -467,3 +464,7 @@ async def chat(body: ChatRequest, x_api_key: str = Header(...)):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "active_sessions": len(SESSIONS)}
+
+# Mount remaining static files (style.css, etc.) at root
+# MUST be at the end so it doesn't intercept API routes
+app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
