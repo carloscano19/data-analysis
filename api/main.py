@@ -57,7 +57,14 @@ app.add_middleware(
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse(content=(FRONTEND_DIR / "index.html").read_text(encoding="utf-8"))
+    content = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+    # Add a hidden indicator for debugging
+    content = content.replace("</body>", "<!-- VERSION: 1.1.5-FIX-405 --></body>")
+    return HTMLResponse(content=content)
+
+@app.get("/test")
+async def test_route():
+    return {"message": "backend is alive"}
 
 
 # ─────────────────────────────────────────────
