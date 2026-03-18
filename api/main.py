@@ -207,6 +207,29 @@ def _call_llm(api_key: str, messages: list[dict], system_prompt: str = "") -> st
 # ─────────────────────────────────────────────
 # Safe exec sandbox
 # ─────────────────────────────────────────────
+import datetime as dt_mod
+
+# Allowed names that LLM imports might try to import — we silently allow them
+_ALLOWED_IMPORT_NAMES = {"pandas", "pd", "numpy", "np", "plotly", "px", "go", "datetime", "timedelta", "re"}
+
+def _safe_import(name, *args, **kwargs):
+    """Controlled __import__ that only allows safe stdlib/pre-loaded libraries.
+    Any import the LLM writes for pre-loaded libs (pd, np, etc.) is silently
+    absorbed \u2014 the real objects are already in the exec namespace.
+    """
+    if name not in _ALLOWED_IMPORT_NAMES:
+        raise ImportError(f"Import of '{name}' is not allowed in the sandbox.")
+    # Return the already-imported module from SAFE_LIBS where possible
+    _module_map = {
+        "pandas": pd, "pd": pd,
+        "numpy": np, "np": np,
+        "plotly": px,
+        "datetime": dt_mod,
+        "timedelta": dt_mod,
+        "re": re,
+    }
+    return _module_map.get(name, None)
+
 SAFE_BUILTINS = {
     "__builtins__": {
         "len": len, "range": range, "enumerate": enumerate,
@@ -216,16 +239,31 @@ SAFE_BUILTINS = {
         "sum": sum, "abs": abs, "round": round, "isinstance": isinstance,
         "hasattr": hasattr, "getattr": getattr,
         "set": set, "tuple": tuple,
+        "__import__": _safe_import,  # allow limited imports without crashing
+        "None": None, "True": True, "False": False,
     },
 }
 
-import datetime as dt_mod
 SAFE_LIBS = {
-    "pd": pd, "px": px, "go": go, 
-    "np": np, 
-    "datetime": dt_mod.datetime, 
-    "timedelta": dt_mod.timedelta
+    "pd": pd, "px": px, "go": go,
+    "np": np,
+    "datetime": dt_mod.datetime,
+    "timedelta": dt_mod.timedelta,
+    "re": re,
 }
+
+
+def _strip_imports(code: str) -> str:
+    """Remove import/from-import lines from LLM-generated code.
+    The libraries are already pre-injected into the exec namespace.
+    """
+    cleaned = []
+    for line in code.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("import ") or stripped.startswith("from "):
+            continue  # skip, library already available
+        cleaned.append(line)
+    return "\n".join(cleaned)
 
 
 def _safe_exec_chart(code: str, dfs: dict[str, pd.DataFrame]) -> dict:
@@ -234,6 +272,7 @@ def _safe_exec_chart(code: str, dfs: dict[str, pd.DataFrame]) -> dict:
     All DataFrames are available as their var_name (e.g. df_queries, df_pages).
     Returns Plotly JSON dict.
     """
+    code = _strip_imports(code)  # defensive: remove any import lines
     local_ns = {**dfs}
     # Also expose 'df' as the first/primary DataFrame for convenience
     if dfs:
@@ -261,10 +300,11 @@ def _safe_exec_chart(code: str, dfs: dict[str, pd.DataFrame]) -> dict:
 
 def _safe_exec_data_code(code: str, dfs: dict[str, pd.DataFrame]) -> str:
     """Execute LLM-generated analysis Python code and return captured stdout."""
+    code = _strip_imports(code)  # defensive: remove any import lines
     local_ns = {**dfs}
     if dfs:
         local_ns["df"] = next(iter(dfs.values()))
-    
+
     f = io.StringIO()
     try:
         with contextlib.redirect_stdout(f):
@@ -378,13 +418,15 @@ async def generate_chart(body: ChartRequest, x_api_key: str = Header(...)):
         "You are an expert data visualization engineer.\n"
         "You have access to multiple pandas DataFrames. Generate ONLY executable Python code "
         "using Plotly Express (px) or Plotly Graph Objects (go) to create a chart.\n"
-        "Rules:\n"
+        "CRITICAL RULES — violating these will cause a runtime error:\n"
         "1. Assign the final figure to a variable named `fig`.\n"
-        "2. Do NOT import any libraries — pd, px, go, and all DataFrames are already available.\n"
+        "2. NEVER write import statements of any kind. pd, px, go, np, datetime, timedelta "
+        "and all DataFrames are PRE-LOADED in the execution namespace.\n"
         f"3. Available DataFrames: {df_list}\n"
         "4. Do NOT include explanations, markdown fences, or comments.\n"
-        "5. Output ONLY the raw Python code.\n"
+        "5. Output ONLY the raw Python code — no ```python fences.\n"
         "6. Use descriptive titles and axis labels.\n"
+        "7. For date filtering, use: pd.to_datetime(df['Date']) and timedelta(days=N).\n"
     )
 
     schema_block  = _schema_prompt_block(meta)
@@ -430,16 +472,25 @@ async def chat(body: ChatRequest, x_api_key: str = Header(...)):
     system_prompt = (
         "You are an expert data analyst and Python/Pandas specialist.\n"
         "You help users understand, explore, and answer specific questions about their datasets.\n"
-        "IMPORTANT: You do not have the full data context, only the column names and 5 sample rows. "
-        "If you need to perform calculations, filtering, or data extraction to answer the user's question accurately, "
-        "you MUST write a Python script to do it. "
-        "To run a Python script, output it in a code block like this:\n"
-        "```python\nprint(df_queries['Impressions'].sum())\n```\n"
-        "We will execute the script securely and give you back the printed output. Then you MUST use that output to answer the user naturally.\n"
-        "ALWAYS use `print()` inside your Python scripts to output the results you need.\n"
-        "If the user asks for 'the last X days', identify the Date column and calculate using `datetime.now()` or the max date in the data.\n"
+        "You only have 5 sample rows per dataset — so you MUST write Python code to perform any calculation, "
+        "filtering, aggregation, or date-range query on the full data.\n"
+        "\n"
+        "HOW TO RUN CODE: Wrap it in a ```python block like this:\n"
+        "```python\n"
+        "# Example: sum of a column\n"
+        "print(df_queries['Impressions'].sum())\n"
+        "```\n"
+        "The backend will execute it and return the printed output. Use that output to answer the user.\n"
+        "\n"
+        "CRITICAL — SANDBOX RULES (breaking these causes 'Execution error'):\n"
+        "- NEVER write `import` or `from X import Y` statements. ALL libraries are pre-loaded.\n"
+        "- Pre-loaded: pd (pandas), np (numpy), datetime, timedelta, re\n"
+        "- Pre-loaded DataFrames: " + df_list + "\n"
+        "- Always use `print()` to output results.\n"
+        "- For date math: use `pd.to_datetime(df['Date'])` and `timedelta(days=N)`.\n"
+        "- Get the most-recent date with: `pd.to_datetime(df['Date']).max()`\n"
+        "\n"
         "Respond in the same language the user writes in.\n\n"
-        f"Available DataFrames: {df_list}\n\n"
         "Dataset schemas and samples:\n" + _schema_prompt_block(meta)
     )
 
