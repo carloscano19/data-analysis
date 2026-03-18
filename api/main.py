@@ -55,12 +55,12 @@ app.add_middleware(
 )
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
-
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return HTMLResponse(content=(FRONTEND_DIR / "index.html").read_text(encoding="utf-8"))
+
+# Mount remaining static files (style.css, etc.) at root
+app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 # ─────────────────────────────────────────────
