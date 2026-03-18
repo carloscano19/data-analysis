@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Data Analysis Tool</title>
+  <meta name="description" content="Upload CSV/XLSX files and generate AI-powered interactive charts and insights via natural language." />
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- Plotly CDN -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-brand">
+    <div class="header-logo">📊</div>
+    <div>
+      <div class="header-title">AI Data Analysis Tool</div>
+      <div class="header-subtitle">Powered by GPT · Claude · Gemini</div>
+    </div>
+  </div>
+
+  <div class="header-actions">
+    <div id="status-indicator" style="display:none;" class="session-badge">
+      <div class="status-dot"></div>
+      <span>Session:</span>
+      <span class="session-name" id="session-filename">—</span>
+    </div>
+    <button id="btn-new-session" class="btn btn-ghost btn-sm" style="display:none;" onclick="resetSession()">
+      ↺ New Session
+    </button>
+    <button id="btn-upload-header" class="btn btn-primary btn-sm" onclick="triggerUpload()">
+      ⬆ Upload File
+    </button>
+  </div>
+</header>
+
+<!-- ─── Hidden file input ───────────────────────────────── -->
+<input type="file" id="upload-input" accept=".csv,.xlsx,.xls" multiple onchange="handleFileChange(event)" />
+
+<!-- ─── Main Layout ─────────────────────────────────────── -->
+<main class="app-shell">
+
+  <!-- ══ LEFT PANEL — Charts ══════════════════════════════ -->
+  <section class="panel panel-chart" aria-label="Chart Visualizer">
+    <div class="panel-header">
+      <div class="panel-title">
+        <div class="panel-title-icon">📈</div>
+        Chart Visualizer
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="btn-toggle-code" class="btn btn-ghost btn-sm" style="display:none;" onclick="toggleCode()">
+          &lt;/&gt; Code
+        </button>
+        <button id="btn-download-chart" class="btn btn-ghost btn-sm" style="display:none;" onclick="downloadChart()">
+          ↓ PNG
+        </button>
+      </div>
+    </div>
+
+    <!-- Schema preview (shown after upload) -->
+    <div id="schema-preview" class="schema-preview" style="display:none;">
+      <div id="schema-tables"></div>
+    </div>
+
+    <!-- Chart body -->
+    <div class="chart-body">
+      <!-- Upload drop zone (initial state) -->
+      <div id="upload-zone" class="upload-zone"
+           onclick="triggerUpload()"
+           ondragover="onDragOver(event)"
+           ondragleave="onDragLeave(event)"
+           ondrop="onDrop(event)">
+        <div class="upload-icon">🗂️</div>
+        <div class="upload-title">Drop your data files here</div>
+        <div class="upload-hint">
+          Drag & drop one or multiple CSV / Excel files, or click to browse.<br/>
+          All files are loaded into the same session. Max 50 MB per file.
+        </div>
+        <div class="upload-formats">
+          <span class="format-badge">.CSV</span>
+          <span class="format-badge">.XLSX</span>
+          <span class="format-badge">.XLS</span>
+        </div>
+      </div>
+
+      <!-- Chart placeholder (post-upload, pre-chart) -->
+      <div id="chart-placeholder" class="chart-placeholder" style="display:none;">
+        <div class="chart-placeholder-icon">✨</div>
+        <div class="chart-placeholder-text">
+          Your dataset is ready.<br/>
+          Describe the chart you want in the prompt bar below.
+        </div>
+      </div>
+
+      <!-- Plotly chart container -->
+      <div id="chart-container" style="display:none;width:100%;height:100%;"></div>
+
+      <!-- Generated code viewer -->
+      <pre id="code-viewer" class="code-viewer"></pre>
+    </div>
+
+    <!-- Prompt bar (enabled after upload) -->
+    <div class="prompt-bar" id="prompt-bar">
+      <textarea
+        id="chart-prompt"
+        class="prompt-input"
+        rows="1"
+        placeholder="Describe the chart you want… e.g. 'Bar chart of clicks by country from df_countries'"
+        disabled
+        onkeydown="onPromptKey(event)"
+      ></textarea>
+      <button id="btn-generate" class="btn btn-primary" disabled onclick="generateChart()">
+        <span id="btn-generate-label">Generate Chart</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══ RIGHT PANEL — Chat ═══════════════════════════════ -->
+  <section class="panel panel-chat" aria-label="AI Assistant Chat">
+    <div class="panel-header">
+      <div class="panel-title">
+        <div class="panel-title-icon">🤖</div>
+        AI Assistant
+      </div>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="clearChat()" title="Clear conversation">🗑</button>
+    </div>
+
+    <!-- Chat messages -->
+    <div class="chat-body" id="chat-body">
+      <!-- System welcome message -->
+      <div class="msg assistant" id="msg-welcome">
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-bubble">
+          <strong>Welcome to AI Data Analysis Tool!</strong><br/><br/>
+          To get started:<br/>
+          1. <strong>Upload</strong> a CSV or Excel file using the left panel.<br/>
+          2. Enter your <strong>LLM API key</strong> below (OpenAI, Anthropic, or Gemini).<br/>
+          3. <strong>Ask me anything</strong> about your data — insights, trends, summaries, or chart ideas!
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat input area -->
+    <div class="chat-input-area">
+      <!-- API Key -->
+      <div class="api-key-bar">
+        <span class="api-key-label">🔑 API Key</span>
+        <input
+          type="password"
+          id="api-key-input"
+          class="api-key-input"
+          placeholder="sk-… / sk-ant-… / AIza…"
+          autocomplete="off"
+          title="Paste your OpenAI (sk-), Anthropic (sk-ant-), or Gemini (AIza) API key"
+        />
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="toggleApiKeyVisibility()" id="btn-eye" title="Show/Hide key">👁</button>
+      </div>
+
+      <!-- Message input -->
+      <div class="chat-input-row">
+        <textarea
+          id="chat-input"
+          class="chat-textarea"
+          placeholder="Ask about your data…"
+          rows="1"
+          onkeydown="onChatKey(event)"
+          oninput="autoResizeTextarea(this)"
+          disabled
+        ></textarea>
+        <button id="btn-send" class="btn btn-primary btn-icon" disabled onclick="sendChat()" title="Send message">
+          ➤
+        </button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ─── Toast Container ─────────────────────────────────── -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ─── App Script ──────────────────────────────────────── -->
+<script>
+/* ============================================================
+   Config & State
+   ============================================================ */
+// Auto-detect environment: use relative path locally, or absolute Render URL in production
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? '' 
+  : 'https://data-analysis-backend.onrender.com';
+
+let sessionId   = null;  // multi-file session
+let fileId      = null;  // alias kept for compat
+let schemaData  = null;
+let chatHistory = [];          // [{role, content}]
+let currentChartJson = null;   // last Plotly JSON
+let codeVisible = false;
+
+/* ============================================================
+   Upload
+   ============================================================ */
+function triggerUpload() {
+  document.getElementById('upload-input').click();
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.add('drag-over');
+}
+function onDragLeave(e) {
+  document.getElementById('upload-zone').classList.remove('drag-over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files);
+  if (files.length) uploadFiles(files);
+}
+function handleFileChange(event) {
+  const files = Array.from(event.target.files);
+  if (files.length) uploadFiles(files);
+}
+
+async function uploadFiles(files) {
+  const validExts = ['.csv', '.xlsx', '.xls'];
+  const valid = files.filter(f => validExts.includes('.' + f.name.split('.').pop().toLowerCase()));
+  if (!valid.length) { showToast('Only CSV and XLSX files are supported.', 'error'); return; }
+
+  const oversized = valid.filter(f => f.size > 50 * 1024 * 1024);
+  if (oversized.length) {
+    showToast(`${oversized.map(f=>f.name).join(', ')} exceed the 50 MB limit.`, 'error'); return;
+  }
+
+  showToast(`Uploading ${valid.length} file(s)…`, 'info');
+
+  const formData = new FormData();
+  valid.forEach(f => formData.append('files', f));
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Upload failed');
+    }
+    const data = await res.json();
+    sessionId = data.session_id;
+    fileId    = sessionId; // compat alias used by chart/chat endpoints
+    schemaData = data;
+
+    updateUIAfterUpload(data);
+
+    const totalRows = data.files.reduce((s, f) => s + f.row_count, 0);
+    let msg = `✓ ${data.files.length} file(s) loaded — ${totalRows.toLocaleString()} total rows`;
+    if (data.warnings?.length) msg += ` | ⚠ ${data.warnings.join(', ')}`;
+    showToast(msg, 'success');
+  } catch (err) {
+    showToast(`Upload error: ${err.message}`, 'error');
+  }
+}
+
+function updateUIAfterUpload(data) {
+  document.getElementById('upload-zone').style.display      = 'none';
+  document.getElementById('chart-placeholder').style.display = 'flex';
+  document.getElementById('schema-preview').style.display   = 'block';
+
+  // Session badge — show first filename or count
+  const label = data.files.length === 1
+    ? data.files[0].filename
+    : `${data.files.length} files loaded`;
+  document.getElementById('status-indicator').style.display = 'flex';
+  document.getElementById('btn-new-session').style.display   = 'inline-flex';
+  document.getElementById('btn-upload-header').style.display = 'none';
+  document.getElementById('session-filename').textContent    = label;
+
+  // Build schema tables — one compact block per file
+  const container = document.getElementById('schema-tables');
+  container.innerHTML = '';
+  data.files.forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:10px';
+    wrap.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:var(--accent-primary);margin-bottom:4px;font-family:var(--font-mono)">
+        ${escapeHtml(f.var_name)} — ${escapeHtml(f.filename)} (${f.row_count.toLocaleString()} rows)
+      </div>
+      <table class="schema-table">
+        <thead><tr><th>Column</th><th>Type</th></tr></thead>
+        <tbody>${f.columns.map(c =>
+          `<tr><td>${escapeHtml(c.name)}</td><td><span class="dtype-badge">${escapeHtml(c.dtype)}</span></td></tr>`
+        ).join('')}</tbody>
+      </table>`;
+    container.appendChild(wrap);
+  });
+
+  // Enable inputs
+  document.getElementById('chart-prompt').disabled = false;
+  document.getElementById('btn-generate').disabled  = false;
+  document.getElementById('chat-input').disabled    = false;
+  document.getElementById('btn-send').disabled       = false;
+
+  // Chat welcome message with all file info
+  const fileLines = data.files.map(f => {
+    const cols = f.columns.map(c => `**${c.name}** (${c.dtype})`).join(', ');
+    return `**\`${f.var_name}\`** — ${f.filename} (${f.row_count.toLocaleString()} rows)\n  ${cols}`;
+  }).join('\n\n');
+
+  appendMsg('assistant',
+    `📂 **${data.files.length} file(s) loaded into your session:**\n\n${fileLines}\n\n` +
+    `You can ask about any of them, compare across files, or describe a chart. ¿En qué te ayudo?`
+  );
+}
+
+/* ============================================================
+   Chart Generation
+   ============================================================ */
+async function generateChart() {
+  if (!fileId) return;
+  const prompt = document.getElementById('chart-prompt').value.trim();
+  if (!prompt) { showToast('Please describe the chart you want.', 'info'); return; }
+
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  if (!apiKey) { showToast('Please enter your API key first.', 'error'); return; }
+
+  setGenerating(true);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/chart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+      body: JSON.stringify({ file_id: fileId, prompt })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Chart generation failed');
+    }
+    const data = await res.json();
+    renderChart(data.chart);
+    document.getElementById('code-viewer').textContent = data.code;
+    showToast('Chart generated successfully!', 'success');
+  } catch (err) {
+    showToast(`Chart error: ${err.message}`, 'error');
+    console.error(err);
+  } finally {
+    setGenerating(false);
+  }
+}
+
+function renderChart(chartJson) {
+  currentChartJson = chartJson;
+
+  document.getElementById('chart-placeholder').style.display = 'none';
+  const container = document.getElementById('chart-container');
+  container.style.display = 'block';
+
+  Plotly.react(container, chartJson.data, chartJson.layout, {
+    responsive: true,
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['sendDataToCloud'],
+    toImageButtonOptions: { format: 'png', scale: 2 }
+  });
+
+  document.getElementById('btn-toggle-code').style.display    = 'inline-flex';
+  document.getElementById('btn-download-chart').style.display = 'inline-flex';
+}
+
+function setGenerating(loading) {
+  const btn   = document.getElementById('btn-generate');
+  const label = document.getElementById('btn-generate-label');
+  btn.disabled = loading;
+  if (loading) {
+    label.innerHTML = '<span class="spinner"></span> Generating…';
+  } else {
+    label.textContent = 'Generate Chart';
+  }
+}
+
+function onPromptKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); generateChart(); }
+}
+
+function toggleCode() {
+  codeVisible = !codeVisible;
+  const viewer = document.getElementById('code-viewer');
+  viewer.classList.toggle('visible', codeVisible);
+  document.getElementById('btn-toggle-code').textContent = codeVisible ? '✕ Code' : '</> Code';
+}
+
+function downloadChart() {
+  const container = document.getElementById('chart-container');
+  Plotly.downloadImage(container, { format: 'png', width: 1600, height: 900, filename: 'chart' });
+}
+
+/* ============================================================
+   Chat
+   ============================================================ */
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  if (!fileId) { showToast('Please upload a file first.', 'info'); return; }
+
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  if (!apiKey) { showToast('Please enter your API key first.', 'error'); return; }
+
+  input.value = '';
+  autoResizeTextarea(input);
+
+  appendMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  const typingId = showTyping();
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+      body: JSON.stringify({ file_id: fileId, messages: chatHistory })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Chat failed');
+    }
+    const data = await res.json();
+    removeTyping(typingId);
+    appendMsg('assistant', data.reply);
+    chatHistory.push({ role: 'assistant', content: data.reply });
+  } catch (err) {
+    removeTyping(typingId);
+    appendMsg('assistant', `⚠️ Error: ${err.message}`);
+  }
+}
+
+function onChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function appendMsg(role, markdown) {
+  const body   = document.getElementById('chat-body');
+  const avatar = role === 'user' ? '👤' : '🤖';
+  const div    = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="msg-avatar">${avatar}</div>
+    <div class="msg-bubble">${renderMarkdown(markdown)}</div>
+  `;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const id   = 'typing-' + Date.now();
+  const body = document.getElementById('chat-body');
+  const div  = document.createElement('div');
+  div.className = 'msg assistant typing-indicator';
+  div.id = id;
+  div.innerHTML = `
+    <div class="msg-avatar">🤖</div>
+    <div class="msg-bubble">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>
+  `;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function clearChat() {
+  chatHistory = [];
+  const body = document.getElementById('chat-body');
+  // Keep welcome message
+  const welcome = document.getElementById('msg-welcome');
+  body.innerHTML = '';
+  if (welcome) body.appendChild(welcome);
+
+  if (fileId && schemaData) {
+    const colList = schemaData.columns.map(c => `**${c.name}** (${c.dtype})`).join(', ');
+    appendMsg('assistant',
+      `Chat cleared. Dataset **\`${schemaData.filename}\`** is still loaded (${schemaData.row_count.toLocaleString()} rows). What would you like to explore?`
+    );
+    chatHistory.push({ role: 'assistant', content: 'Chat cleared. How can I help you with the data?' });
+  }
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+}
+
+/* ============================================================
+   Session Reset
+   ============================================================ */
+function resetSession() {
+  sessionId   = null;
+  fileId      = null;
+  schemaData  = null;
+  chatHistory = [];
+  currentChartJson = null;
+  codeVisible = false;
+
+  // Reset chart panel
+  document.getElementById('upload-zone').style.display          = 'flex';
+  document.getElementById('chart-placeholder').style.display    = 'none';
+  document.getElementById('chart-container').style.display      = 'none';
+  document.getElementById('schema-preview').style.display       = 'none';
+  document.getElementById('schema-tables').innerHTML             = '';
+  document.getElementById('code-viewer').classList.remove('visible');
+  document.getElementById('code-viewer').textContent            = '';
+  document.getElementById('btn-toggle-code').style.display      = 'none';
+  document.getElementById('btn-download-chart').style.display   = 'none';
+
+  // Reset header
+  document.getElementById('status-indicator').style.display     = 'none';
+  document.getElementById('btn-new-session').style.display      = 'none';
+  document.getElementById('btn-upload-header').style.display    = 'inline-flex';
+
+  // Disable inputs
+  document.getElementById('chart-prompt').disabled = true;
+  document.getElementById('chart-prompt').value    = '';
+  document.getElementById('btn-generate').disabled  = true;
+  document.getElementById('chat-input').disabled    = true;
+  document.getElementById('btn-send').disabled       = true;
+
+  // Reset chat
+  const body = document.getElementById('chat-body');
+  const welcome = document.getElementById('msg-welcome');
+  body.innerHTML = '';
+  if (welcome) body.appendChild(welcome);
+
+  // Reset upload input
+  document.getElementById('upload-input').value = '';
+  Plotly.purge('chart-container');
+
+  showToast('Session cleared.', 'info');
+}
+
+/* ============================================================
+   API Key visibility toggle
+   ============================================================ */
+let apiKeyVisible = false;
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('api-key-input');
+  apiKeyVisible = !apiKeyVisible;
+  input.type = apiKeyVisible ? 'text' : 'password';
+  document.getElementById('btn-eye').textContent = apiKeyVisible ? '🙈' : '👁';
+}
+
+/* ============================================================
+   Toast Notifications
+   ============================================================ */
+function showToast(message, type = 'info', duration = 4000) {
+  const container = document.getElementById('toast-container');
+  const toast     = document.createElement('div');
+  const icons     = { success: '✓', error: '✕', info: 'ℹ' };
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type] || 'ℹ'}</span> ${escapeHtml(message)}`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+function renderMarkdown(text) {
+  if (typeof marked !== 'undefined') {
+    return marked.parse(text, { breaks: true, gfm: true });
+  }
+  return escapeHtml(text).replace(/\n/g, '<br/>');
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
