@@ -22,5 +22,5 @@ jobs:
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: ${{ secrets.HOSTINGER_SSH_PORT }}
         source: "frontend/*"
-        target: "public_html/data-analysis/"
+        target: "/home/${{ secrets.HOSTINGER_SSH_USER }}/domains/carloscanofernandez.com/public_html/data-analysis/"
         strip_components: 1
