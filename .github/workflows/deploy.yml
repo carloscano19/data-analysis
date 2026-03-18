@@ -10,17 +10,19 @@ on:
 
 jobs:
   web-deploy:
-    name: Deploy Frontend via FTP
+    name: Deploy Frontend via SSH
     runs-on: ubuntu-latest
     steps:
     - name: Get latest code
       uses: actions/checkout@v4
     
-    - name: Sync files
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+    - name: Copy files via SSH
+      uses: appleboy/scp-action@v0.1.7
       with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/
-        server-dir: ./public_html/data-analysis/
+        host: ${{ secrets.HOSTINGER_SSH_HOST }}
+        username: ${{ secrets.HOSTINGER_SSH_USER }}
+        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        port: ${{ secrets.HOSTINGER_SSH_PORT }}
+        source: "frontend/*"
+        target: "public_html/data-analysis/"
+        strip_components: 1
