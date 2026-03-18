@@ -317,18 +317,28 @@ function updateUIAfterUpload(data) {
       });
     }
 
-    // 4. Chart Suggestions
+    // 4. Chart Suggestions (Data-Aware)
+    const file1 = data.files[0];
+    const catCol = file1.columns.find(c => ['object', 'string'].includes(c.dtype.toLowerCase()))?.name || file1.columns[0].name;
+    const numCol = file1.columns.find(c => ['int64', 'float64', 'int32', 'float32'].includes(c.dtype.toLowerCase()))?.name || file1.columns[1]?.name || file1.columns[0].name;
+    const timeCol = file1.columns.find(c => c.name.toLowerCase().includes('date') || c.name.toLowerCase().includes('time'))?.name;
+
     const suggestions = [
-      "Bar chart of top 10 categories",
-      "Time series of values over time",
-      "Correlation between numeric columns",
-      "Distribution of the main metric"
+      `Bar chart of top 10 ${catCol} by ${numCol}`,
+      `Distribution of ${numCol}`
     ];
+    if (timeCol) {
+      suggestions.push(`Time series of ${numCol} over ${timeCol}`);
+    } else {
+      suggestions.push(`Box plot of ${numCol} grouped by ${catCol}`);
+    }
+    suggestions.push(`Correlation between numeric columns in ${file1.var_name}`);
+
     const suggDiv = document.getElementById('chart-suggestions');
     if (suggDiv) {
       suggDiv.style.display = 'block';
       suggDiv.innerHTML = `
-        <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase">Suggestions</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase">Suggested for ${file1.var_name}</div>
         <div class="suggestions-list">
           ${suggestions.map(s => `<span class="suggestion-chip" onclick="fillPrompt('${s}')">${s}</span>`).join('')}
         </div>
