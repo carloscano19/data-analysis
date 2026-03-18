@@ -319,7 +319,12 @@ function updateUIAfterUpload(data) {
 
     // 4. Chart Suggestions (Visual & Dynamic)
     const file1 = data.files[0];
-    const catCol = file1.columns.find(c => ['object', 'string'].includes(c.dtype.toLowerCase()))?.name || file1.columns[0].name;
+    // Prefer strings that are NOT dates for categorical chips (Pie/Bar)
+    const catCol = file1.columns.find(c => 
+      ['object', 'string'].includes(c.dtype.toLowerCase()) && 
+      !c.name.toLowerCase().includes('date') && !c.name.toLowerCase().includes('time')
+    )?.name || file1.columns.find(c => ['object', 'string'].includes(c.dtype.toLowerCase()))?.name || file1.columns[0].name;
+    
     const numCol = file1.columns.find(c => ['int64', 'float64', 'int32', 'float32'].includes(c.dtype.toLowerCase()))?.name || file1.columns[1]?.name || file1.columns[0].name;
     const timeCol = file1.columns.find(c => c.name.toLowerCase().includes('date') || c.name.toLowerCase().includes('time'))?.name;
 
