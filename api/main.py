@@ -291,10 +291,17 @@ def _safe_exec_chart(code: str, dfs: dict[str, pd.DataFrame]) -> dict:
 
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor="#1E293B",
-        plot_bgcolor="#0F172A",
-        font=dict(color="#E2E8F0"),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#E2E8F0", family="Inter, sans-serif"),
+        autosize=True,
+        margin=dict(l=40, r=40, t=60, b=40),
+        legend=dict(orientation="v", yanchor="auto", y=0.5, xanchor="left", x=1.02)
     )
+    # Remove any hardcoded width/height the LLM might have set
+    fig.layout.width = None
+    fig.layout.height = None
+    
     return json.loads(pio.to_json(fig))
 
 
