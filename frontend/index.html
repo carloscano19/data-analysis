@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Data Analysis Tool</title>
   <meta name="description" content="Upload CSV/XLSX files and generate AI-powered interactive charts and insights via natural language." />
-  <link rel="stylesheet" href="style.css?v=1.2.2" />
+  <link rel="stylesheet" href="style.css?v=1.3.0" />
   <!-- Plotly CDN -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <!-- Marked.js for markdown rendering -->
@@ -375,31 +375,35 @@ function updateUIAfterUpload(data) {
 
     // 4. Chart Suggestions (Visual & Dynamic)
     const file1 = data.files[0];
-    // Prefer strings that are NOT dates for categorical chips (Pie/Bar)
-    const catCol = file1.columns.find(c => 
-      ['object', 'string'].includes(c.dtype.toLowerCase()) && 
-      !c.name.toLowerCase().includes('date') && !c.name.toLowerCase().includes('time')
-    )?.name || file1.columns.find(c => ['object', 'string'].includes(c.dtype.toLowerCase()))?.name || file1.columns[0].name;
     
-    const numCol = file1.columns.find(c => ['int64', 'float64', 'int32', 'float32'].includes(c.dtype.toLowerCase()))?.name || file1.columns[1]?.name || file1.columns[0].name;
-    const timeCol = file1.columns.find(c => c.name.toLowerCase().includes('date') || c.name.toLowerCase().includes('time'))?.name;
+    // Safety check for completely empty files
+    if (file1 && file1.columns && file1.columns.length > 0) {
+      // Prefer strings that are NOT dates for categorical chips (Pie/Bar)
+      const catCol = file1.columns.find(c => 
+        ['object', 'string'].includes(c.dtype.toLowerCase()) && 
+        !c.name.toLowerCase().includes('date') && !c.name.toLowerCase().includes('time')
+      )?.name || file1.columns.find(c => ['object', 'string'].includes(c.dtype.toLowerCase()))?.name || file1.columns[0].name;
+      
+      const numCol = file1.columns.find(c => ['int64', 'float64', 'int32', 'float32'].includes(c.dtype.toLowerCase()))?.name || file1.columns[1]?.name || file1.columns[0].name;
+      const timeCol = file1.columns.find(c => c.name.toLowerCase().includes('date') || c.name.toLowerCase().includes('time'))?.name;
 
-    const suggestions = [
-      { label: `📊 Top 10 ${catCol}`, text: `Bar chart of top 10 ${catCol} by ${numCol}` },
-      { label: `📈 ${numCol} Trend`, text: timeCol ? `Time series of ${numCol} over ${timeCol}` : `Line chart of ${numCol} by index` },
-      { label: `🥧 ${catCol} Pie`, text: `Pie chart of ${numCol} by ${catCol}` },
-      { label: `📉 ${numCol} Distrib`, text: `Box plot of ${numCol} grouped by ${catCol}` }
-    ];
+      const suggestions = [
+        { label: `📊 Top 10 ${catCol}`, text: `Bar chart of top 10 ${catCol} by ${numCol}` },
+        { label: `📈 ${numCol} Trend`, text: timeCol ? `Time series of ${numCol} over ${timeCol}` : `Line chart of ${numCol} by index` },
+        { label: `🥧 ${catCol} Pie`, text: `Pie chart of ${numCol} by ${catCol}` },
+        { label: `📉 ${numCol} Distrib`, text: `Box plot of ${numCol} grouped by ${catCol}` }
+      ];
 
-    const suggDiv = document.getElementById('chart-suggestions');
-    if (suggDiv) {
-      suggDiv.style.display = 'block';
-      suggDiv.innerHTML = `
-        <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase">Ideas for ${file1.var_name}</div>
-        <div class="suggestions-list">
-          ${suggestions.map(s => `<span class="suggestion-chip" title="${s.text}" onclick="fillPrompt('${s.text}')">${s.label}</span>`).join('')}
-        </div>
-      `;
+      const suggDiv = document.getElementById('chart-suggestions');
+      if (suggDiv) {
+        suggDiv.style.display = 'block';
+        suggDiv.innerHTML = `
+          <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase">Ideas for ${file1.var_name}</div>
+          <div class="suggestions-list">
+            ${suggestions.map(s => `<span class="suggestion-chip" title="${s.text}" onclick="fillPrompt('${s.text}')">${s.label}</span>`).join('')}
+          </div>
+        `;
+      }
     }
 
     // 5. Enable Inputs
