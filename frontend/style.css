@@ -360,6 +360,7 @@ body {
 #chart-container {
   flex: 1;
   min-height: 0;
+  overflow: auto;
 }
 
 .chart-placeholder {

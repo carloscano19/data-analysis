@@ -425,8 +425,9 @@ async def generate_chart(body: ChartRequest, x_api_key: str = Header(...)):
         f"3. Available DataFrames: {df_list}\n"
         "4. Do NOT include explanations, markdown fences, or comments.\n"
         "5. Output ONLY the raw Python code — no ```python fences.\n"
-        "6. Use descriptive titles and axis labels.\n"
+        "6. Make charts highly professional and visually stunning. Use beautiful color sequences (e.g., px.colors.qualitative.Pastel or sequence gradients), add hover data, clean up axis titles, and use descriptive chart titles.\n"
         "7. For date filtering, use: pd.to_datetime(df['Date']) and timedelta(days=N).\n"
+        "8. If data needs to be joined across tables (e.g. Clicks from df_pages and Country from df_countries), use pd.merge() to combine them before plotting.\n"
     )
 
     schema_block  = _schema_prompt_block(meta)
@@ -489,6 +490,10 @@ async def chat(body: ChatRequest, x_api_key: str = Header(...)):
         "- Always use `print()` to output results.\n"
         "- For date math: use `pd.to_datetime(df['Date'])` and `timedelta(days=N)`.\n"
         "- Get the most-recent date with: `pd.to_datetime(df['Date']).max()`\n"
+        "\n"
+        "CRITICAL — DATA JOINS & PRINTING EXACT DATA:\n"
+        "- If the user asks a question combining fields from different tables (e.g., 'URLs and Countries'), YOU MUST use `pd.merge()` to join the relevant DataFrames on a common key (like 'Date' or 'Query'). Do not just say 'I need to combine them' — WRITE THE CODE to combine them.\n"
+        "- ALWAYS print the exactly requested columns (e.g., if they ask for URLs, ensure the URL/Page column is in your printed output!). Use `.to_string()` or `.head()` to print dataframes clearly.\n"
         "\n"
         "Respond in the same language the user writes in.\n\n"
         "Dataset schemas and samples:\n" + _schema_prompt_block(meta)
