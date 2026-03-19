@@ -44,114 +44,24 @@
 <!-- ─── Main Layout ─────────────────────────────────────── -->
 <main class="app-shell">
 
-  <!-- ══ LEFT PANEL — Charts ══════════════════════════════ -->
-  <section class="panel panel-chart" aria-label="Chart Visualizer">
+  <!-- ══ LEFT SIDEBAR (Catalog & API) ═════════════════════ -->
+  <aside class="sidebar panel" id="sidebar" style="display:none;">
     <div class="panel-header">
       <div class="panel-title">
-        <div class="panel-title-icon">📈</div>
-        Chart Visualizer
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button id="btn-toggle-code" class="btn btn-ghost btn-sm" style="display:none;" onclick="toggleCode()">
-          &lt;/&gt; Code
-        </button>
-        <button id="btn-download-chart" class="btn btn-ghost btn-sm" style="display:none;" onclick="downloadChart()">
-          ↓ PNG
-        </button>
+        <div class="panel-title-icon">📂</div>
+        Data Catalog
       </div>
     </div>
-
+    
     <!-- Schema preview (shown after upload) -->
-    <div id="schema-preview" class="schema-preview" style="display:none;">
+    <div id="schema-preview" class="schema-preview">
       <div id="schema-tables"></div>
     </div>
 
-    <!-- Chart body -->
-    <div class="chart-body">
-      <!-- Upload drop zone (initial state) -->
-      <div id="upload-zone" class="upload-zone"
-           onclick="triggerUpload()"
-           ondragover="onDragOver(event)"
-           ondragleave="onDragLeave(event)"
-           ondrop="onDrop(event)">
-        <div class="upload-icon">🗂️</div>
-        <div class="upload-title">Drop your data files here</div>
-        <div class="upload-hint">
-          Drag & drop one or multiple CSV / Excel files, or click to browse.<br/>
-          All files are loaded into the same session. Max 50 MB per file.
-        </div>
-        <div class="upload-formats">
-          <span class="format-badge">.CSV</span>
-          <span class="format-badge">.XLSX</span>
-          <span class="format-badge">.XLS</span>
-        </div>
-      </div>
-
-      <!-- Chart placeholder (post-upload, pre-chart) -->
-      <div id="chart-placeholder" class="chart-placeholder" style="display:none;">
-        <div class="chart-placeholder-icon">✨</div>
-        <div class="chart-placeholder-text">
-          Your dataset is ready.<br/>
-          Describe the chart you want in the prompt bar below.
-        </div>
-      </div>
-
-      <!-- Plotly chart container -->
-      <div id="chart-container" style="display:none;width:100%;height:100%;"></div>
-
-      <!-- Generated code viewer -->
-      <pre id="code-viewer" class="code-viewer"></pre>
-    </div> <!-- end chart-body -->
-    
-    <!-- Chart Suggestions (new persistent area) -->
-    <div id="chart-suggestions" class="suggestions-box" style="display:none;"></div>
-
-    <!-- Prompt bar (enabled after upload) -->
-    <div class="prompt-bar" id="prompt-bar">
-      <textarea
-        id="chart-prompt"
-        class="prompt-input"
-        rows="1"
-        placeholder="Describe the chart you want… e.g. 'Bar chart of clicks by country from df_countries'"
-        disabled
-        onkeydown="onPromptKey(event)"
-      ></textarea>
-      <button id="btn-generate" class="btn btn-primary" disabled onclick="generateChart()">
-        <span id="btn-generate-label">Generate Chart</span>
-      </button>
-    </div>
-  </section>
-
-  <!-- ══ RIGHT PANEL — Chat ═══════════════════════════════ -->
-  <section class="panel panel-chat" aria-label="AI Assistant Chat">
-    <div class="panel-header">
-      <div class="panel-title">
-        <div class="panel-title-icon">🤖</div>
-        AI Assistant
-      </div>
-      <button class="btn btn-ghost btn-sm btn-icon" onclick="clearChat()" title="Clear conversation">🗑</button>
-    </div>
-
-    <!-- Chat messages -->
-    <div class="chat-body" id="chat-body">
-      <!-- System welcome message -->
-      <div class="msg assistant" id="msg-welcome">
-        <div class="msg-avatar">🤖</div>
-        <div class="msg-bubble">
-          <strong>Welcome to AI Data Analysis Tool!</strong><br/><br/>
-          To get started:<br/>
-          1. <strong>Upload</strong> a CSV or Excel file using the left panel.<br/>
-          2. Enter your <strong>LLM API key</strong> below (OpenAI, Anthropic, or Gemini).<br/>
-          3. <strong>Ask me anything</strong> about your data — insights, trends, summaries, or chart ideas!
-        </div>
-      </div>
-    </div>
-
-    <!-- Chat input area -->
-    <div class="chat-input-area">
-      <!-- API Key -->
+    <!-- API Key Input (Moved to sidebar) -->
+    <div class="sidebar-footer">
+      <div class="api-key-label">🔑 API Key required</div>
       <div class="api-key-bar">
-        <span class="api-key-label">🔑 API Key</span>
         <input
           type="password"
           id="api-key-input"
@@ -162,22 +72,127 @@
         />
         <button class="btn btn-ghost btn-sm btn-icon" onclick="toggleApiKeyVisibility()" id="btn-eye" title="Show/Hide key">👁</button>
       </div>
+    </div>
+  </aside>
 
-      <!-- Message input -->
-      <div class="chat-input-row">
-        <textarea
-          id="chat-input"
-          class="chat-textarea"
-          placeholder="Ask about your data…"
-          rows="1"
-          onkeydown="onChatKey(event)"
-          oninput="autoResizeTextarea(this)"
-          disabled
-        ></textarea>
-        <button id="btn-send" class="btn btn-primary btn-icon" disabled onclick="sendChat()" title="Send message">
-          ➤
-        </button>
+  <!-- ══ MAIN AREA (Tabs) ═════════════════════════════════ -->
+  <section class="main-area panel">
+    
+    <!-- Upload drop zone (initial state) -->
+    <div id="upload-zone" class="upload-zone"
+         onclick="triggerUpload()"
+         ondragover="onDragOver(event)"
+         ondragleave="onDragLeave(event)"
+         ondrop="onDrop(event)">
+      <div class="upload-icon">🗂️</div>
+      <div class="upload-title">Drop your data files here</div>
+      <div class="upload-hint">
+        Drag & drop one or multiple CSV / Excel files, or click to browse.<br/>
+        All files are loaded into the same session. Max 50 MB per file.
       </div>
+      <div class="upload-formats">
+        <span class="format-badge">.CSV</span>
+        <span class="format-badge">.XLSX</span>
+        <span class="format-badge">.XLS</span>
+      </div>
+    </div>
+
+    <!-- Tabbed Container (shown after upload) -->
+    <div id="tabs-container" class="tabs-container" style="display:none; flex-direction:column; height:100%;">
+      
+      <!-- Tabs Header -->
+      <div class="tabs-header">
+        <button id="tab-btn-chat" class="tab-btn active" onclick="switchTab('chat')">🤖 AI Assistant</button>
+        <button id="tab-btn-chart" class="tab-btn" onclick="switchTab('chart')">📈 Chart Visualizer</button>
+      </div>
+
+      <!-- == TAB 1: CHAT == -->
+      <div id="view-chat" class="tab-content active" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+        <div class="panel-header" style="justify-content:flex-end; border-bottom:none; padding-bottom:0;">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="clearChat()" title="Clear conversation">🗑</button>
+        </div>
+        
+        <!-- Chat messages -->
+        <div class="chat-body" id="chat-body">
+          <div class="msg assistant" id="msg-welcome">
+            <div class="msg-avatar">🤖</div>
+            <div class="msg-bubble">
+              <strong>Welcome to AI Data Analysis Tool!</strong><br/><br/>
+              To get started:<br/>
+              1. <strong>Upload</strong> a CSV or Excel file.<br/>
+              2. Enter your <strong>LLM API key</strong> in the left sidebar.<br/>
+              3. <strong>Ask me anything</strong> about your data here, or switch to the Charts tab!
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat input area -->
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <textarea
+              id="chat-input"
+              class="chat-textarea"
+              placeholder="Ask about your data…"
+              rows="1"
+              onkeydown="onChatKey(event)"
+              oninput="autoResizeTextarea(this)"
+              disabled
+            ></textarea>
+            <button id="btn-send" class="btn btn-primary btn-icon" disabled onclick="sendChat()" title="Send message">
+              ➤
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- == TAB 2: CHART == -->
+      <div id="view-chart" class="tab-content" style="flex:1; display:none; flex-direction:column; min-height:0;">
+        <div class="panel-header" style="justify-content:flex-end; border-bottom:none; padding-bottom:0;">
+          <div style="display:flex;gap:8px;">
+            <button id="btn-toggle-code" class="btn btn-ghost btn-sm" style="display:none;" onclick="toggleCode()">
+              &lt;/&gt; Code
+            </button>
+            <button id="btn-download-chart" class="btn btn-ghost btn-sm" style="display:none;" onclick="downloadChart()">
+              ↓ PNG
+            </button>
+          </div>
+        </div>
+
+        <div class="chart-body" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+          <!-- Chart placeholder -->
+          <div id="chart-placeholder" class="chart-placeholder">
+            <div class="chart-placeholder-icon">✨</div>
+            <div class="chart-placeholder-text">
+              Describe the chart you want in the prompt bar below.
+            </div>
+          </div>
+
+          <!-- Plotly container -->
+          <div id="chart-container" style="display:none;width:100%;height:100%;overflow:auto;"></div>
+
+          <!-- Generated code viewer -->
+          <pre id="code-viewer" class="code-viewer"></pre>
+        </div>
+
+        <!-- Suggestions -->
+        <div id="chart-suggestions" class="suggestions-box" style="display:none;"></div>
+
+        <!-- Prompt bar -->
+        <div class="prompt-bar" id="prompt-bar">
+          <textarea
+            id="chart-prompt"
+            class="prompt-input"
+            rows="1"
+            placeholder="Describe the chart you want… e.g. 'Pie chart of top 5 countries'"
+            disabled
+            onkeydown="onPromptKey(event)"
+          ></textarea>
+          <button id="btn-generate" class="btn btn-primary" disabled onclick="generateChart()">
+            <span id="btn-generate-label">Generate Chart</span>
+          </button>
+        </div>
+      </div>
+
     </div>
   </section>
 </main>
@@ -201,6 +216,29 @@ let schemaData  = null;
 let chatHistory = [];          // [{role, content}]
 let currentChartJson = null;   // last Plotly JSON
 let codeVisible = false;
+
+/* ============================================================
+   Tab Navigation
+   ============================================================ */
+function switchTab(tabId) {
+  document.getElementById('tab-btn-chat').classList.remove('active');
+  document.getElementById('tab-btn-chart').classList.remove('active');
+  document.getElementById(`tab-btn-${tabId}`).classList.add('active');
+
+  document.getElementById('view-chat').style.display = 'none';
+  document.getElementById('view-chart').style.display = 'none';
+  
+  const activeView = document.getElementById(`view-${tabId}`);
+  activeView.style.display = 'flex';
+
+  // Plotly often computes dimensions incorrectly when container is display:none
+  // So we trigger a resize when the chart tab is made visible.
+  if (tabId === 'chart' && currentChartJson) {
+    setTimeout(() => {
+      Plotly.Plots.resize(document.getElementById('chart-container'));
+    }, 50);
+  }
+}
 
 /* ============================================================
    Upload
@@ -285,6 +323,9 @@ function updateUIAfterUpload(data) {
     // 1. Hide/Show key panel elements IMMEDIATELY
     const uploadZone = document.getElementById('upload-zone');
     if (uploadZone) uploadZone.style.display = 'none';
+    
+    document.getElementById('sidebar').style.display = 'flex';
+    document.getElementById('tabs-container').style.display = 'flex';
     
     const chartPlaceholder = document.getElementById('chart-placeholder');
     if (chartPlaceholder) chartPlaceholder.style.display = 'flex';
@@ -586,8 +627,12 @@ function resetSession() {
   currentChartJson = null;
   codeVisible = false;
 
-  // Reset chart panel
+  // Reset App Shell views
   document.getElementById('upload-zone').style.display          = 'flex';
+  document.getElementById('sidebar').style.display              = 'none';
+  document.getElementById('tabs-container').style.display       = 'none';
+
+  // Reset chart panel
   document.getElementById('chart-placeholder').style.display    = 'none';
   document.getElementById('chart-container').style.display      = 'none';
   document.getElementById('schema-preview').style.display       = 'none';
