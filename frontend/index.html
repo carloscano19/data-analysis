@@ -206,8 +206,8 @@
    Config & State
    ============================================================ */
 // Auto-detect environment: use relative path locally, or absolute Render URL in production
-const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? '' 
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:')
+  ? 'http://127.0.0.1:8000' 
   : 'https://data-analysis-p8o2.onrender.com';
 
 let sessionId   = null;  // multi-file session
@@ -292,7 +292,16 @@ async function uploadFiles(files) {
   valid.forEach(f => formData.append('files', f));
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+
+    const res = await fetch(`${API_BASE_URL}/api/upload`, { 
+      method: 'POST', 
+      body: formData,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: `Server error ${res.status}` }));
       throw new Error(err.detail || `Server error: ${res.status}`);
@@ -312,7 +321,13 @@ async function uploadFiles(files) {
     // Restore upload zone on error
     uploadZone.innerHTML = originalContent;
     uploadZone.style.pointerEvents = '';
-    showToast(`Upload error: ${err.message}`, 'error');
+    
+    let errMsg = err.message;
+    if (err.name === 'AbortError') {
+      errMsg = 'Timeout: The server took too long to wake up. Please try again.';
+    }
+    
+    showToast(`Upload error: ${errMsg}`, 'error');
     console.error('Upload error:', err);
   }
 }
