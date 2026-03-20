@@ -106,12 +106,12 @@ def _to_var_name(filename: str) -> str:
     return f"df_{slug}"
 
 
-def _load_dataframe(path: str, original_filename: str) -> pd.DataFrame:
+def _load_dataframe(path: str, original_filename: str, sheet_name=None) -> pd.DataFrame:
     ext = Path(original_filename).suffix.lower()
     if ext == ".csv":
         return pd.read_csv(path)
     elif ext in (".xlsx", ".xls"):
-        return pd.read_excel(path, engine="openpyxl")
+        return pd.read_excel(path, engine="openpyxl", sheet_name=sheet_name)
     raise ValueError(f"Unsupported file type: {ext}")
 
 
@@ -160,7 +160,7 @@ def _load_all_dataframes(meta: dict) -> dict[str, pd.DataFrame]:
     """Return a dict {var_name: DataFrame} for all files in the session."""
     dfs = {}
     for f in meta["files"]:
-        dfs[f["var_name"]] = _load_dataframe(f["path"], f["filename"])
+        dfs[f["var_name"]] = _load_dataframe(f["path"], f["filename"], f.get("sheet_name"))
     return dfs
 
 
@@ -372,20 +372,50 @@ async def upload_files(files: List[UploadFile] = File(...)):
         dest.write_bytes(content)
 
         try:
-            df     = _load_dataframe(str(dest), file.filename)
-            schema = _build_schema(df)
+            if ext in (".xlsx", ".xls"):
+                xls = pd.ExcelFile(str(dest), engine="openpyxl")
+                sheets_found = 0
+                for sheet in xls.sheet_names:
+                    df = pd.read_excel(xls, sheet_name=sheet)
+                    if df.empty and len(df.columns) == 0:
+                        continue # Skip completely empty sheets
+                    
+                    sheets_found += 1
+                    slug_name = file.filename if len(xls.sheet_names) == 1 else f"{file.filename} - {sheet}"
+                    var_name = _to_var_name(slug_name)
+                    
+                    schema = _build_schema(df)
+                    file_metas.append({
+                        "var_name": var_name,
+                        "filename": slug_name,
+                        "path":     str(dest),
+                        "sheet_name": sheet,
+                        "schema":   schema,
+                    })
+                
+                if sheets_found == 0:
+                    errors.append(f"{file.filename}: completely empty Excel file.")
+                    dest.unlink(missing_ok=True)
+            else:
+                df     = _load_dataframe(str(dest), file.filename)
+                if df.empty and len(df.columns) == 0:
+                    errors.append(f"{file.filename}: completely empty CSV file.")
+                    dest.unlink(missing_ok=True)
+                    continue
+
+                schema = _build_schema(df)
+                var_name = _to_var_name(file.filename)
+                file_metas.append({
+                    "var_name": var_name,
+                    "filename": file.filename,
+                    "path":     str(dest),
+                    "sheet_name": None,
+                    "schema":   schema,
+                })
         except Exception as e:
             dest.unlink(missing_ok=True)
             errors.append(f"{file.filename}: parse error — {e}")
             continue
-
-        var_name = _to_var_name(file.filename)
-        file_metas.append({
-            "var_name": var_name,
-            "filename": file.filename,
-            "path":     str(dest),
-            "schema":   schema,
-        })
 
     if not file_metas:
         raise HTTPException(status_code=422, detail="No files could be processed. " + " | ".join(errors))
